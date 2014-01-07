@@ -5,8 +5,17 @@ import signal
 import sys
 import re
 
+
+network = 'irc.quakenet.org'
+port = 6667
+username = 'javlabot'
+realname = 'JävlaBot'
+channel = '#dfmap'
+
+
 turkeys = {}
 turkey_critical_mass = 20
+
 
 # Each line from the server represents a message, which we should somehow handle
 def handle_message(message):
@@ -18,10 +27,11 @@ def handle_message(message):
 		elif message.startswith(':'):
 			sender, code, body = message.split(' ', 2)
 
+			# 001 is the welcome code, and it means we can join channels
 			if code == '001':
-				# Join the channel
 				send('JOIN ' + channel)
 
+			# PRIVMSG is the turkey-hunting code
 			elif code == 'PRIVMSG':
 				print(sender)
 				global turkeys
@@ -60,12 +70,6 @@ def exit_gracefully(signal, frame):
 	send('QUIT')
 	sys.exit(0)
 
-
-network = 'irc.quakenet.org'
-port = 6667
-username = 'javlabot'
-realname = 'JävlaBot'
-channel = '#javlabot'
 
 # Connect to the IRC server
 irc = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
