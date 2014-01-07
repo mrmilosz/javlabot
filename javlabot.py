@@ -33,7 +33,6 @@ def handle_message(message):
 
 			# PRIVMSG is the turkey-hunting code
 			elif code == 'PRIVMSG':
-				print(sender)
 				global turkeys
 				turkey_name = re.match(r':([^!]*)!', sender).group(1)	
 				if not turkey_name in turkeys:
