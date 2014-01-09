@@ -55,7 +55,7 @@ def handle_message(message):
 							turkeys[channel][username] = 0
 
 						# If the turkey addressed the bot directly, respond in kind
-						if re.search(r'\bj[äa?]vla\b\s+(?:%s|%s)' % (args.username, args.realname), text):
+						if re.search(r'\b[Jj][äa?]vla\b\s+(?:%s|%s)' % (args.username, args.realname), text):
 							send('PRIVMSG %s :jävla %s' % (channel, username))
 							turkeys[channel][username] = 0
 
