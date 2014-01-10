@@ -5,6 +5,7 @@ import signal
 import sys
 import re
 import argparse
+import datetime
 
 parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter, description='An IRC bot that swears at people in Swedish when they talk too much.')
 parser.add_argument('--host'         , default='localhost', type=str, help='the IRC server to which to connect')
@@ -18,12 +19,21 @@ args = parser.parse_args()
 # For keeping track of who is talking the most
 turkeys = {}
 
+# For control over the listening loop
+listening = False
+
 # Each line from the server represents a message, which we should somehow handle
 def handle_message(message):
 
 	# First we have to get the ping out of the way
 	if message.startswith('PING'):
 		send('PONG %s' % re.sub(r'[^\d]*', '', message))
+
+	if message.startswith('ERROR'):
+		if re.search(r'timeout', message, re.IGNORECASE):
+			disconnect()
+			connect()
+			listen()
 
 	elif message.startswith(':'):
 		tokens = message.split(' ', 2)
@@ -69,20 +79,22 @@ def handle_message(message):
 
 # This is a blocking function, which listens for data from the IRC server forever
 def listen():
+	global listening
+	listening = True
 	# Since responses may be broken up over packets, we use a buffer to wait for the next newline
 	data_buffer = ''
-	while True:
+	while listening:
 		lines = irc.recv(4096).decode('UTF-8', 'replace').split('\r\n')
 		lines[0] = data_buffer + lines[0]
 		data_buffer = lines.pop()
 
 		for message in lines:
-			print('SERVER: %s' % message)
+			print('%s SERVER: %s' % (get_timestamp(), message))
 			handle_message(message)
 
 # Go through here to send messages to the IRC server
 def send(message):
-	print('CLIENT: %s' % message)
+	print('%s CLIENT: %s' % (get_timestamp(), message))
 	irc.send(('%s\r\n' % message).encode('UTF-8'))
 
 # Make sure to disconnect cleanly on program exit
@@ -91,15 +103,24 @@ def exit_gracefully(signal, frame):
 	send('QUIT jävla %s' % args.username)
 	sys.exit(0)
 
+def get_timestamp():
+	datetime.datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')
 
 # Connect to the IRC server
-irc = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-irc.connect((args.host, args.port))
-signal.signal(signal.SIGINT, exit_gracefully)
+def connect():
+	global irc
+	irc = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+	irc.connect((args.host, args.port))
+	signal.signal(signal.SIGINT, exit_gracefully)
 
-# Identify
-send('NICK %s' % args.username)
-send('USER %s 0 * :%s' % (args.username, args.realname))
+	# Identify
+	send('NICK %s' % args.username)
+	send('USER %s 0 * :%s' % (args.username, args.realname))
 
-# Start botting
+def disconnect():
+	global irc
+	irc.close()
+	listening = False
+
+connect()
 listen()
