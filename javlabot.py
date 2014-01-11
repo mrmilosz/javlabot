@@ -104,7 +104,7 @@ def exit_gracefully(signal, frame):
 	sys.exit(0)
 
 def get_timestamp():
-	datetime.datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')
+	return datetime.datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')
 
 # Connect to the IRC server
 def connect():
