@@ -30,7 +30,7 @@ def connect():
 	send('USER %s 0 * :%s' % (args.username, args.realname))
 
 def disconnect():
-	global irc
+	global irc, listening
 	irc.close()
 	listening = False
 
@@ -56,7 +56,6 @@ def handle_message(message):
 			listen()
 
 	elif command.startswith(b':'):
-
 		source = command.lstrip(b':')
 		command, tail = get_token(tail)
 
@@ -69,19 +68,19 @@ def handle_message(message):
 		# KICK means we say sorry, rejoin, and give the mad guy a bit of a break
 		elif command == b'KICK':
 			channel, tail = get_token(tail)
-			decoded_channel = channel.decode('utf8', 'ignore')
-			victim, tail = get_token(tail)
-			decoded_victim_username = victim.decode('utf8', 'ignore')
+			decoded_channel = channel and channel.decode('utf8', 'ignore')
+			victim_username, tail = get_token(tail)
+			decoded_victim_username = victim_username and victim.decode('utf8', 'ignore')
 
 			if decoded_victim_username == args.username:
 				send('JOIN %s' % decoded_channel)
-				send('PRIVMSG %s :sorry, %s' % (decoded_channel, decoded_username))
+				send('PRIVMSG %s :sorry, %s, i will try to be a better bot' % (decoded_channel, decoded_username))
 				turkeys[decoded_channel][decoded_username] = -args.critical_mass
 
 		# PRIVMSG is the turkey-hunting code
 		elif command == b'PRIVMSG':
 			channel, tail = get_token(tail)
-			if channel.startswith(b'#'):
+			if channel and channel.startswith(b'#'):
 				decoded_channel = channel.decode('utf8', 'ignore')
 			else:
 				decoded_channel = decoded_username
@@ -162,7 +161,13 @@ def normalize(stri):
 	return collate(stri).lower()
 
 def collate(stri):
-	return ''.join(unicodedata.lookup(unicodedata.name(c).split(' WITH ', 1)[0]) for c in stri)
+	return ''.join(remove_marks(c) for c in stri)
+
+def remove_marks(char):
+	try:
+		return unicodedata.lookup(unicodedata.name(char).split(' WITH ', 1)[0])
+	except KeyError:
+		return char
 
 
 # Main
@@ -176,6 +181,9 @@ turkeys = {}
 
 # For control over the listening loop
 listening = False
+
+# The socket
+irc = None
 
 connect()
 listen()
