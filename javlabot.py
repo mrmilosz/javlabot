@@ -9,12 +9,12 @@ import unicodedata
 import string
 
 parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter, description='An IRC bot that swears at people in Swedish when they talk too much.')
-parser.add_argument('--host'         , default='localhost', type=str, nargs=1  , help='the IRC server to which to connect')
-parser.add_argument('--port'         , default=6667       , type=int, nargs=1  , help='the port on which to connect')
-parser.add_argument('--channels'     , default='#javla'   , type=str, nargs=1  , help='the channel(s) to join')
-parser.add_argument('--username'     , default='javlabot' , type=str, nargs=1  , help='the username that the bot will use')
-parser.add_argument('--realname'     , default='JävlaBot' , type=str, nargs=1  , help='the WHOIS name for the bot')
-parser.add_argument('--critical_mass', default=20         , type=int, nargs=1  , help='after how many posts to insult')
+parser.add_argument('--host'         , default='localhost', type=str,            help='the IRC server to which to connect')
+parser.add_argument('--port'         , default=6667       , type=int,            help='the port on which to connect')
+parser.add_argument('--channels'     , default='#javla'   , type=str,            help='the channel(s) to join')
+parser.add_argument('--username'     , default='javlabot' , type=str,            help='the username that the bot will use')
+parser.add_argument('--realname'     , default='JävlaBot' , type=str,            help='the WHOIS name for the bot')
+parser.add_argument('--critical_mass', default=20         , type=int,            help='after how many posts to insult')
 parser.add_argument('--triggers'     , default=['javla']  , type=str, nargs='+', help='words that set the bot off')
 args = parser.parse_args()
 
