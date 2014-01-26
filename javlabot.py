@@ -8,19 +8,46 @@ import datetime
 import unicodedata
 import string
 
-parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter, description='An IRC bot that swears at people in Swedish when they talk too much.')
-parser.add_argument('--host'         , default='localhost', type=str,            help='the IRC server to which to connect')
-parser.add_argument('--port'         , default=6667       , type=int,            help='the port on which to connect')
-parser.add_argument('--channels'     , default='#javla'   , type=str,            help='the channel(s) to join')
-parser.add_argument('--username'     , default='javlabot' , type=str,            help='the username that the bot will use')
-parser.add_argument('--realname'     , default='JävlaBot' , type=str,            help='the WHOIS name for the bot')
-parser.add_argument('--critical_mass', default=20         , type=int,            help='after how many posts to insult')
-parser.add_argument('--triggers'     , default=['javla']  , type=str, nargs='+', help='words that set the bot off')
-args = parser.parse_args()
+def main():
+	global args, irc, listening, turkeys, normalized_triggers, normalized_nicks
 
-# Connect to the IRC server
+	try:
+		parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter, description='An IRC bot that swears at people in Swedish when they talk too much.')
+		parser.add_argument('--host'         , default='localhost', type=str,            help='the IRC server to which to connect')
+		parser.add_argument('--port'         , default=6667       , type=int,            help='the port on which to connect')
+		parser.add_argument('--channels'     , default='#javla'   , type=str,            help='the channel(s) to join')
+		parser.add_argument('--username'     , default='javlabot' , type=str,            help='the username that the bot will use')
+		parser.add_argument('--realname'     , default='JävlaBot' , type=str,            help='the WHOIS name for the bot')
+		parser.add_argument('--critical_mass', default=20         , type=int,            help='after how many posts to insult')
+		parser.add_argument('--triggers'     , default=['javla']  , type=str, nargs='+', help='words that set the bot off')
+		args = parser.parse_args()
+
+		# What sets the bot off
+		normalized_triggers = [normalize(trigger) for trigger in args.triggers]
+		normalized_nicks = [normalize(nick) for nick in (args.username, args.realname)]
+
+		# For keeping track of who is talking the most
+		turkeys = {}
+
+		# For control over the listening loop
+		listening = False
+
+		# The socket
+		irc = None
+
+		connect()
+		listen()
+
+	except Exception as e:
+		log(e)
+		return 1
+
+	return 0
+
+# Connects to the IRC server
 def connect():
 	global irc
+
 	irc = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 	irc.connect((args.host, args.port))
 	signal.signal(signal.SIGINT, exit_gracefully)
@@ -29,12 +56,14 @@ def connect():
 	send('NICK %s' % args.username)
 	send('USER %s 0 * :%s' % (args.username, args.realname))
 
+# Closes the connection and halts the listen function; unblocks the thread
 def disconnect():
 	global irc, listening
+
 	irc.close()
 	listening = False
 
-# Each line from the server represents a message, which we should somehow handle
+# Handles a single line from the server
 def handle_message(message):
 	command, tail = get_token(message)
 
@@ -92,13 +121,14 @@ def handle_message(message):
 			else:
 				update_turkey(decoded_channel, decoded_username, 'add', 1)
 
-				if turkeys[decoded_channel][decoded_username] > args.critical_mass:
+				if turkey_cooked(decoded_channel, decoded_username):
 					send('PRIVMSG %s :jävla %s' % (decoded_channel, decoded_username))
 					reset_turkeys(decoded_channel)
 
 # This is a blocking function, which listens for data from the IRC server forever
 def listen():
-	global listening
+	global irc, listening
+
 	listening = True
 	# Since responses may be broken up over packets, we use a buffer to wait for the next newline
 	data_buffer = b''
@@ -113,10 +143,12 @@ def listen():
 
 # Go through here to send messages to the IRC server
 def send(message):
+	global irc
+
 	log('CLIENT: %s' % message)
 	irc.send(('%s\r\n' % message).encode('utf8'))
 
-# Make sure to disconnect cleanly on program exit
+# Makes sure to disconnect cleanly on program exit
 def exit_gracefully(signal, frame):
 	print()
 	send('QUIT jävla %s' % args.username)
@@ -124,6 +156,8 @@ def exit_gracefully(signal, frame):
 
 # Returns whether or not the trigger text is in the PRIVMSG text
 def find_trigger(text):
+	global normalized_triggers, normalized_nicks
+
 	try:
 		decoded_message = text.decode('utf8', 'strict')
 	except UnicodeError:
@@ -136,11 +170,13 @@ def find_trigger(text):
 			return True
 	return False
 
+# Resets the turkey count
 def reset_turkeys(channel):
 	global turkeys
 
 	turkeys[channel] = {}
 
+# Modifies the turkey count
 def update_turkey(channel, username, action, value):
 	global turkeys
 
@@ -154,6 +190,13 @@ def update_turkey(channel, username, action, value):
 	elif action == 'add':
 		turkeys[channel][username] += value
 
+# Returns whether the turkey is ripe for hunting
+def turkey_cooked(channel, username):
+	global turkeys
+
+	return channel in turkeys and username in turkeys[channel] and turkeys[channel][username] > args.critical_mass
+
+# Returns the current ISO UTC date without miliseconds or timezone
 def get_timestamp():
 	return datetime.datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')
 
@@ -161,39 +204,28 @@ def get_timestamp():
 def log(*messages):
 	print('%s %s' % (get_timestamp(), ''.join('[%s]' % message for message in messages)))
 
+# Returns the first token and the tail
 def get_token(bts):
 	if bts is None:
 		return (None, None)
 	tokens = bts.split(None, 1)
 	return tuple(tokens) if len(tokens) == 2 else (tokens[0], None)
 
+# Returns the string without capitals or marks
 def normalize(stri):
 	return collate(stri).lower()
 
+# Removes all marks from a string
 def collate(stri):
-	return ''.join(remove_marks(c) for c in stri)
+	return ''.join(collate_char(c) for c in stri)
 
-def remove_marks(char):
+# Removes all marks from a character
+def collate_char(char):
 	try:
 		return unicodedata.lookup(unicodedata.name(char).split(' WITH ', 1)[0])
 	except KeyError:
 		return char
 
 
-# Main
-
-# What sets the bot off
-normalized_triggers = [normalize(trigger) for trigger in args.triggers]
-normalized_nicks = [normalize(nick) for nick in (args.username, args.realname)]
-
-# For keeping track of who is talking the most
-turkeys = {}
-
-# For control over the listening loop
-listening = False
-
-# The socket
-irc = None
-
-connect()
-listen()
+if __name__ == '__main__':
+	sys.exit(main())
