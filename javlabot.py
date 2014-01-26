@@ -36,8 +36,6 @@ def disconnect():
 
 # Each line from the server represents a message, which we should somehow handle
 def handle_message(message):
-	global turkeys
-
 	command, tail = get_token(message)
 
 	# First we have to get the ping out of the way
@@ -75,7 +73,7 @@ def handle_message(message):
 			if decoded_victim_username == args.username:
 				send('JOIN %s' % decoded_channel)
 				send('PRIVMSG %s :sorry, %s, i will try to be a better bot' % (decoded_channel, decoded_username))
-				turkeys[decoded_channel][decoded_username] = -args.critical_mass
+				update_turkey(decoded_channel, decoded_username, 'set', -args.critical_mass)
 
 		# PRIVMSG is the turkey-hunting code
 		elif command == b'PRIVMSG':
@@ -86,23 +84,17 @@ def handle_message(message):
 				decoded_channel = decoded_username
 			text = tail.lstrip(b':')
 
-			# Ensure that the current turkey is being tracked
-			if decoded_channel not in turkeys:
-				turkeys[decoded_channel] = {}
-			if decoded_username not in turkeys[decoded_channel]:
-				turkeys[decoded_channel][decoded_username] = 0
-			
 			if find_trigger(text):
 				send('PRIVMSG %s :jävla %s' % (decoded_channel, decoded_username))
-				turkeys[decoded_channel][decoded_username] = 0
+				update_turkey(decoded_channel, decoded_username, 'set', 0)
 
 			# Otherwise increment the turkey count and check for critical mass
 			else:
-				turkeys[decoded_channel][decoded_username] += 1
+				update_turkey(decoded_channel, decoded_username, 'add', 1)
 
 				if turkeys[decoded_channel][decoded_username] > args.critical_mass:
 					send('PRIVMSG %s :jävla %s' % (decoded_channel, decoded_username))
-					turkeys[decoded_channel] = {}
+					reset_turkeys(decoded_channel)
 
 # This is a blocking function, which listens for data from the IRC server forever
 def listen():
@@ -144,10 +136,28 @@ def find_trigger(text):
 			return True
 	return False
 
-# Go through here to log things to the console
+def reset_turkeys(channel):
+	global turkeys
+
+	turkeys[channel] = {}
+
+def update_turkey(channel, username, action, value):
+	global turkeys
+
+	if channel not in turkeys:
+		turkeys[channel] = {}
+	if username not in turkeys[channel]:
+		turkeys[channel][username] = 0
+
+	if action == 'set':
+		turkeys[channel][username] = value
+	elif action == 'add':
+		turkeys[channel][username] += value
+
 def get_timestamp():
 	return datetime.datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')
 
+# Go through here to log things to the console
 def log(*messages):
 	print('%s %s' % (get_timestamp(), ''.join('[%s]' % message for message in messages)))
 
