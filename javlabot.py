@@ -70,7 +70,7 @@ def handle_message(message):
 			channel, tail = get_token(tail)
 			decoded_channel = channel and channel.decode('utf8', 'ignore')
 			victim_username, tail = get_token(tail)
-			decoded_victim_username = victim_username and victim.decode('utf8', 'ignore')
+			decoded_victim_username = victim_username and victim_username.decode('utf8', 'ignore')
 
 			if decoded_victim_username == args.username:
 				send('JOIN %s' % decoded_channel)
