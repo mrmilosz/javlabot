@@ -46,7 +46,7 @@ def main():
 
 # Connects to the IRC server
 def connect():
-	global irc
+	global args, irc
 
 	irc = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 	irc.connect((args.host, args.port))
@@ -65,6 +65,8 @@ def disconnect():
 
 # Handles a single line from the server
 def handle_message(message):
+	global args
+
 	command, tail = get_token(message)
 
 	# First we have to get the ping out of the way
@@ -150,6 +152,8 @@ def send(message):
 
 # Makes sure to disconnect cleanly on program exit
 def exit_gracefully(signal, frame):
+	global args
+
 	print()
 	send('QUIT jävla %s' % args.username)
 	sys.exit(0)
@@ -192,7 +196,7 @@ def update_turkey(channel, username, action, value):
 
 # Returns whether the turkey is ripe for hunting
 def turkey_cooked(channel, username):
-	global turkeys
+	global args, turkeys
 
 	return channel in turkeys and username in turkeys[channel] and turkeys[channel][username] > args.critical_mass
 
