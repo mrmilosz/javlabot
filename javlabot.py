@@ -61,6 +61,7 @@ def disconnect():
 	global irc, listening
 
 	irc.close()
+	signal.signal(signal.SIGINT, signal.SIG_DFL)
 	listening = False
 
 # Handles a single line from the server
