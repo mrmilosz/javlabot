@@ -227,7 +227,7 @@ def collate(stri):
 def collate_char(char):
 	try:
 		return unicodedata.lookup(unicodedata.name(char).split(' WITH ', 1)[0])
-	except KeyError:
+	except (KeyError, ValueError):
 		return char
 
 
