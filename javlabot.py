@@ -7,6 +7,7 @@ import argparse
 import datetime
 import unicodedata
 import string
+import errno
 
 def main():
 	global args, irc, listening, turkeys, normalized_triggers, normalized_nicks
@@ -36,7 +37,15 @@ def main():
 		irc = None
 
 		connect()
-		listen()
+
+		while True:
+			try:
+				listen()
+			except SocketError as e:
+				if e.errno != errno.ECONNRESET:
+					raise
+				disconnect()
+				connect()
 
 	except Exception as e:
 		log(e)
