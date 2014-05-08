@@ -42,7 +42,7 @@ def main():
 		while True:
 			try:
 				listen()
-			except SocketError as e:
+			except socket.error as e:
 				if e.errno != errno.ECONNRESET:
 					raise
 				disconnect()
