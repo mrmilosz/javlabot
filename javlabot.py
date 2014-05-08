@@ -20,6 +20,7 @@ def main():
 		parser.add_argument('--username'     , default='javlabot' , type=str,            help='the username that the bot will use')
 		parser.add_argument('--realname'     , default='JävlaBot' , type=str,            help='the WHOIS name for the bot')
 		parser.add_argument('--critical_mass', default=20         , type=int,            help='after how many posts to insult')
+		parser.add_argument('--bad_word'     , default='jävla'    , type=str,            help='the word with which the bot responds')
 		parser.add_argument('--triggers'     , default=['javla']  , type=str, nargs='+', help='words that set the bot off')
 		args = parser.parse_args()
 
@@ -126,7 +127,7 @@ def handle_message(message):
 			text = tail.lstrip(b':')
 
 			if find_trigger(text):
-				send('PRIVMSG %s :jävla %s' % (decoded_channel, decoded_username))
+				send('PRIVMSG %s :%s %s' % (decoded_channel, args.bad_word, decoded_username))
 				update_turkey(decoded_channel, decoded_username, 'set', 0)
 
 			# Otherwise increment the turkey count and check for critical mass
@@ -134,7 +135,7 @@ def handle_message(message):
 				update_turkey(decoded_channel, decoded_username, 'add', 1)
 
 				if turkey_cooked(decoded_channel, decoded_username):
-					send('PRIVMSG %s :jävla %s' % (decoded_channel, decoded_username))
+					send('PRIVMSG %s :%s %s' % (decoded_channel, args.bad_word, decoded_username))
 					reset_turkeys(decoded_channel)
 
 # This is a blocking function, which listens for data from the IRC server forever
@@ -165,7 +166,7 @@ def exit_gracefully(signal, frame):
 	global args
 
 	print()
-	send('QUIT jävla %s' % args.username)
+	send('QUIT %s %s' % (args.bad_word, args.username))
 	sys.exit(0)
 
 # Returns whether or not the trigger text is in the PRIVMSG text
